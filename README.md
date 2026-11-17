@@ -1,5 +1,9 @@
 # Token Radar — peer-implied pre-token ranking
 
+[![make.fun · token-radar-01](https://make.fun/badge/token-radar-01.svg)](https://make.fun/bounty/token-radar-01?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
+[![rank](https://make.fun/badge/token-radar-01/xuew86344-create/token-radar-01/rank.svg)](https://make.fun/bounty/token-radar-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
+[![reward](https://make.fun/badge/token-radar-01/xuew86344-create/token-radar-01/reward.svg)](https://make.fun/bounty/token-radar-01?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
+
 A transparent, reproducible estimator of pre-token protocol value — a peer-derived
 valuation and farming intelligence system, **not** an accurate predictor. It reads one
 frozen snapshot, ranks every rankable protocol that records no token by a
