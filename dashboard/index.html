@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token Radar — peer-implied pre-token ranking</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header>
+<h1>Token Radar</h1>
+<p class="sub">Peer-implied values for protocols with no token recorded — a transparent estimator with honest limits, not a launch-price predictor.</p>
+<p class="counts">Frozen snapshot · 14 November 2026 · 758 protocols scanned · 342 with no token recorded · 40 on the watchlist · 226 ranked · 118 live-token peers</p>
+<nav id="nav" aria-label="Sections">
+<button type="button" data-sec="board" class="on">01 Radar Board</button>
+<button type="button" data-sec="detail">02 Protocol Intelligence</button>
+<button type="button" data-sec="comps">03 Live Token Comps</button>
+<button type="button" data-sec="lab">04 Model Lab</button>
+<button type="button" data-sec="planner">05 Farm Planner</button>
+</nav>
+</header>
+<main>
+<section id="sec-board" aria-label="Radar board">
+<div class="filters">
+<label>Search <input id="fQ" type="search" placeholder="Name or slug" autocomplete="off"></label>
+<label>Category <select id="fCat"><option value="">All categories</option></select></label>
+<label>Chain <select id="fChain"><option value="">All chains</option></select></label>
+<label>Min TVL <select id="fTvl"><option value="0">Any TVL</option><option value="1000000">$1M+</option><option value="10000000">$10M+</option><option value="50000000">$50M+ (watchlist floor)</option><option value="100000000">$100M+</option><option value="500000000">$500M+</option><option value="1000000000">$1B+</option></select></label>
+<label>Confidence <select id="fConf"><option value="">Any</option><option>High</option><option>Medium</option><option>Low</option></select></label>
+<label class="chk"><input id="fWatch" type="checkbox"> Watchlist only</label>
+</div>
+<p id="boardCount" class="dim"></p>
+<div id="boardOut"><p>Loading the board…</p></div>
+<h2>Biggest rank movers vs the starter model</h2>
+<p class="dim">The starter ranks by a fixed 0.25× multiple. These protocols move most when the peer evidence replaces it. Click a name for its breakdown.</p>
+<div id="movers"></div>
+</section>
+
+<section id="sec-detail" aria-label="Protocol intelligence" hidden>
+<div id="detailOut"><p>Loading…</p></div>
+</section>
+
+<section id="sec-comps" aria-label="Live token comps" hidden>
+<div id="compsOut"><p>Loading…</p></div>
+</section>
+
+<section id="sec-lab" aria-label="Model lab" hidden>
+<p class="dim">Change any assumption and the board re-ranks from the peer evidence. The lab refits the size curve from the data file and recomputes every value — nothing here is hard-coded — using the same formulas the model states. Ranges are the sandbox limits; the shipped board uses the defaults.</p>
+<div class="labform">
+<label>Survivor discount <input id="Lsurv" type="number" min="0.5" max="1" step="0.05" value="0.85"></label>
+<label>Winsor low percentile <input id="LwLo" type="number" min="0.01" max="0.2" step="0.01" value="0.05"></label>
+<label>Winsor high percentile <input id="LwHi" type="number" min="0.8" max="0.99" step="0.01" value="0.95"></label>
+<label>Multiple floor <input id="Lmflo" type="number" min="0.001" max="1" step="0.001" value="0.01"></label>
+<label>Multiple cap <input id="Lmcap" type="number" min="1" max="20" step="0.5" value="10"></label>
+<label>Per-tx cost, tier A (USD) <input id="LtxA" type="number" min="0" step="0.01" value="0.05"></label>
+<label>Per-tx cost, tier B (USD) <input id="LtxB" type="number" min="0" step="0.01" value="0.5"></label>
+<label>Per-tx cost, tier C (USD) <input id="LtxC" type="number" min="0" step="0.1" value="5"></label>
+<label>Assumed capture share of low end <input id="Lshare" type="number" min="0" step="0.0001" value="0.0001"></label>
+<label>FARM above ratio <input id="LvFarm" type="number" min="1" step="1" value="10"></label>
+<label>THIN at or above ratio <input id="LvThin" type="number" min="0" step="0.5" value="1"></label>
+<button id="Lreset" type="button">Reset to defaults</button>
+</div>
+<p id="verdictNote"></p>
+<p id="labNote"></p>
+<div id="labOut"></div>
+<h2>Top-10 stability across scenarios</h2>
+<p class="dim">Three winsor settings — Narrow (1st/99th percentiles), Base (5th/95th, the defaults), Wide (10th/90th). Each refits the curve and re-ranks the board. A protocol in the top 10 under all three is robust to the winsor choice; the ranking itself follows TVL order through any increasing fitted curve, so what moves across scenarios is the values, not the order — the table shows that plainly.</p>
+<div id="sensOut"></div>
+<h2>Blind test: the model predicts tokens it never saw</h2>
+<p class="dim">Leave-one-out over the 118 peers: each protocol is held out, the size curve is refitted from the other 117, and its market cap is predicted with the same pipeline — but without the survivor discount, a pre-token haircut that would bias predictions of traded tokens down. The baselines are scored blind too. Full method and the honest result are in the methodology panel below.</p>
+<div id="blindOut"><p>Loading…</p></div>
+<h2>Model selection: twelve variants, one blind test</h2>
+<div id="sweepOut"><p>Loading…</p></div>
+</section>
+
+<section id="sec-planner" aria-label="Farm planner" hidden>
+<label>Protocol <select id="pSel"></select></label>
+<div id="planOut"><p>Loading…</p></div>
+<h2>Manual cost calculator</h2>
+<p class="dim">You enter the per-transaction costs; the page multiplies by the plan's transaction counts. Total = transactions × gas cost + bridges × bridge cost + other fees. <strong>User-supplied cost estimate — not a live quote.</strong> Get a live quote before executing.</p>
+<div class="labform">
+<label>Gas cost per transaction (USD) <input id="cGas" type="number" min="0" step="0.01" value="0.50"></label>
+<label>Bridge cost per bridge (USD) <input id="cBridge" type="number" min="0" step="0.01" value="2"></label>
+<label>Other fees (USD) <input id="cOther" type="number" min="0" step="0.01" value="0"></label>
+</div>
+<p id="cOut"></p>
+</section>
+</main>
+
+<aside id="method">
+<h2>Methodology — read this before trusting a number</h2>
+<h3>What the headline number is</h3>
+<p>Peer-implied value is a peer-derived circulating-market-cap proxy: TVL × the multiple read off a size curve fitted on live-token peers × a survivor discount. It is <strong>not</strong> a predicted launch price and <strong>not</strong> an FDV. The snapshot carries market cap only — no FDV field — so every multiple here is circulating-mcap-based, and the page never claims otherwise.</p>
+<h3>The size curve</h3>
+<p>Peers are the 118 protocols with a usable market cap and TVL, excluding exchanges and versioned pool names. Their multiples are winsorized at the global 5th/95th percentiles, then the curve is fitted by ordinary least squares: log market cap = 6.3111 + 0.5533 × log TVL. The slope below 1 is the curve's content: market cap grows more slowly than TVL, so the implied multiple falls as protocols get bigger. A protocol's multiple is the curve read at its TVL, bounded to [0.01, 10]. Because the fitted curve increases with TVL, the ranking follows TVL order; what the curve adds over a fixed multiple is the sublinear scaling, and the blind test below is what justifies it. Every constant lives in one place and is editable in the Model Lab.</p>
+<h3>What the blind test rejected</h3>
+<p>The first version of this board used shrunk category and size-cell medians with growth, maturity and chain-breadth adjustments. A twelve-variant sweep scored that model, its unadjusted twin, other shrinkages, tercile/category/global medians, and the size curve, with and without the adjustments, under the same leave-one-out blind test — and the adjustments lost every pairing: each adjusted variant scored worse than its unadjusted twin. So the shipped model carries no growth, age or chain-count terms. The survivor discount 0.85 is kept: an explicit, named haircut — launched peers skew toward the hyped and successful, so the peer fit overstates what a pre-token protocol would fetch — and it is omitted from blind-test predictions, where it would bias traded-token predictions down.</p>
+<h3>The chain-breadth honesty check</h3>
+<p>Across the 118 peers, the correlation between distinct-chain count and mcap/TVL multiple is r = −0.0175 — essentially no linear relationship. Chain breadth was therefore dropped with the other adjustments, not kept as a decorative term.</p>
+<h3>Ranges and confidence</h3>
+<p>Each value is a range: the fitted log value shifted by the first and third quartiles of the fit's own log residuals (−1.0040 / +1.3466), so the range is the middle half of peer outcomes around the curve. Rows are ranked by the midpoint. Confidence is Medium inside the peers' TVL range ($5.0M–$18.7B) and Low outside it, where the curve extrapolates — one row, flagged “extrapolated”. No row earns High: the blind test's median error near 90% does not support it.</p>
+<h3>Coverage and ranking</h3>
+<p>Snapshot: 758 protocols, as of 14 November 2026. 342 record no token (market cap, CoinGecko id and symbol all absent) — “no token recorded”, never “tokenless”: an absent record is not proof no token exists. 272 further records are ambiguous (no market cap but a CoinGecko id or symbol) and are set aside from both the board and the peer set. The watchlist is the snapshot's own list of 40 slugs at or above the $50,000,000 floor. The board covers all 40 plus every other rankable protocol below the floor — pre-token, not an exchange, not a versioned pool name — 226 rows in total. Default sort: peer-implied value down, then TVL, then 7d change (unknown last), then slug; every column header is clickable to re-sort the filtered list, with ties broken by slug. Deterministic: the same snapshot always produces the same board, with no network and no clock.</p>
+<h3>Farm plans and costs</h3>
+<p>Each plan has six steps built from the protocol's own category, chains, TVL and age — category-typical actions only, never invented pool names, button labels or points-program details. Costs are transaction counts and fee tiers, never invented dollar gas prices: Known (action count, wallet, chain, approvals), Estimated (transaction counts, time, complexity — planning assumptions), Live quote unavailable (gas, bridge, swap, slippage — get a quote before executing). Capital at risk is separate from sunk cost: capital tiers are Low (under $1,000), Medium ($1,000–$10,000), High (over $10,000), planning assumptions from TVL; capital is recoverable on exit, fees are not. Fee tiers: A ≈ cents, B ≈ dimes to a dollar, C ≈ several dollars per transaction; chains the map does not name default to B. Plans prefer the cheapest chain in the protocol's record. Times are ranges on a stated heuristic (sustained activity over a multi-week window), not a known snapshot date. Farming is speculative: no token is confirmed, smart-contract risk applies, sybil filtering may exclude wallets. Nothing here promises an airdrop or a return.</p>
+<h3>Farm priority</h3>
+<p>Farm priority is an execution label, not a second ranking and never an ROI score: Easy, Moderate or Complex from transaction count, bridge need, fee tier and chain spread, or High uncertainty when the record names no chain. The rule is stated in the Farm Planner.</p>
+<h3>Blind-test validation</h3>
+<p>Leave-one-out over the 118 peers: each protocol is held out, the size curve is refitted from the other 117, and the held-out protocol's market cap is predicted with the same pipeline — curve multiple × TVL — but <strong>without</strong> the survivor discount, because that haircut prices pre-token risk and would bias predictions of traded tokens down. Two baselines are scored blind the same way: a flat 0.25× multiple, and the refit global-median multiple with no adjustments. The result on this snapshot: the model <strong>beats</strong> both baselines. Median absolute log error: model 1.1960, flat 1.5914, global-median 1.5752. Median absolute percentage error: model 86.3%, flat 87.9%, global-median 88.3%. Head-to-head, the model's prediction is closer on 59.3% of peers vs the flat baseline and 60.2% vs the global-median baseline. Two honest limits ride with that win. First, the winning variant was picked using the same 118 peers it was tested on, so its score is a selection score, not an unbiased estimate of performance on unseen protocols — the sweep table in the Model Lab lists all twelve candidates so the selection can be checked. Second, even the winner errs by 86% at the median: predicting a traded token's market cap from these ten fields is intrinsically noisy. Re-ranking the full board under each of the 118 refits gives every row a rank range, shown in the detail view: on this snapshot no row moves at all — the fitted curve barely shifts when one peer is dropped, and the ranking follows TVL order through any increasing curve.</p>
+<h3>Farm verdicts</h3>
+<p>Each row carries a verdict — FARM, THIN or SKIP — from stated sunk-cost assumptions netted against an assumed claimable slice of the low end of its range. Assumed cost per transaction: tier A $0.05, tier B $0.50, tier C $5.00, matching the cents / dimes-to-a-dollar / several-dollars tiers; a bridge is assumed to cost twice one transaction on the same chain. Assumed sunk cost = maximum setup transactions × per-transaction cost + bridges × bridge cost ($0.20, $2 or $20 on this snapshot). Capital is not netted: it is recoverable on exit, only fees are sunk. The assumed capture share is 0.01% of the low end — a planning assumption, editable in the Model Lab, not a forecast of any allocation. net_low = capture share × low end − assumed sunk cost; ratio = net_low / assumed sunk cost. FARM above ratio 10, THIN from 1 to 10, SKIP below 1. The detail view also shows the break-even capture share: the slice of the low end a farmer must capture for the assumed costs to wash out. The verdict is assumption-based, never an expected return, and no airdrop is promised; low confidence does not override it and rides alongside as a flag. On this snapshot 199 rows are FARM and 27 are THIN under the defaults, none SKIP. Raise the assumed costs, or lower the capture share, in the lab to see where SKIP begins.</p>
+<h3>Starter comparison</h3>
+<p>Starter rank recomputes the starter formula (TVL × 0.25 × growth × maturity, starter constants) for every row and ranks by it, so the improvement over a fixed-multiple clone is demonstrable, not asserted.</p>
+</aside>
+
+<footer>
+<p>Token Radar · model peer-radar-2 · Frozen DefiLlama protocols snapshot, as of 2026-11-14 · 758 protocols · 342 with no token recorded · 40 on the watchlist · 226 ranked · 118 peers · Offline and deterministic: this page makes no network requests and reads only the data file beside it.</p>
+</footer>
+<script src="../data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
