@@ -50,3 +50,4 @@ details summary span{font-weight:400;color:var(--mut);font-size:13.5px}
 #method p{max-width:86ch}
 footer{border-top:1px solid var(--line);padding-top:12px;padding-bottom:26px;font-size:13px;color:var(--mut)}
 @media(max-width:640px){body{font-size:14px}table{font-size:13px}th,td{padding:5px 6px}}
+.scatter{width:100%;height:auto;display:block}

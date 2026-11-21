@@ -254,6 +254,7 @@ function renderComps() {
   var h = '<div class="card"><h3>Global peer set</h3><p>' + G.n + ' live-token peers · median multiple ' + f4(G.median) + ' · Q1 ' + f4(G.q1) + ' · Q3 ' + f4(G.q3) + ' · winsorized at ' + f4(G.winsor_low) + ' / ' + f4(G.winsor_high) + ' (5th/95th percentiles) · TVL tercile cuts ' + money(G.tercile_cuts[0]) + ' / ' + money(G.tercile_cuts[1]) + '</p>'
     + (D.curve ? '<p>Fitted size curve: log market cap = ' + D.curve.intercept.toFixed(4) + ' + ' + D.curve.slope.toFixed(4) + ' × log TVL · residual quartiles ' + D.curve.resid_q1.toFixed(4) + ' / ' + D.curve.resid_q3.toFixed(4) + ' · peer TVL range ' + money(D.curve.tvl_min) + ' – ' + money(D.curve.tvl_max) + '</p>' : '')
     + '</div>';
+  h += '<h2>TVL against market cap</h2><p class="dim">Blue: 118 peers at actual market cap. Grey: 226 board rows at peer-implied value. Red: the 40 watchlist rows. Line: the fitted curve; board rows sit below it by the ' + M.survivor_discount + ' discount. Log-log axes.</p>' + renderScatter();
   h += '<h2>Categories</h2>';
   cats.forEach(function (c) {
     h += '<details><summary>' + esc(c.category) + ' <span>· ' + c.n + ' peers · median ' + f4(c.median) + ' · Q1–Q3 ' + f4(c.q1) + '–' + f4(c.q3) + '</span></summary>'
@@ -266,6 +267,7 @@ function renderComps() {
   h += '<h2>Live-token view: top ' + D.live.length + ' by market cap</h2><p class="dim">These protocols already trade, so the page shows the market\u2019s own value, not a model\u2019s.</p>';
   h += '<table><thead><tr><th>Protocol</th><th>Category</th><th>TVL</th><th>Market cap</th><th>mcap/TVL</th><th>7d</th></tr></thead><tbody>'
     + D.live.map(function (p) { return '<tr><td>' + esc(p.name) + '</td><td>' + esc(p.category || 'Uncategorized') + '</td><td>' + money(p.tvl_usd) + '</td><td>' + money(p.mcap_usd) + '</td><td>' + (p.mcap_usd === null ? 'n/a' : f4(p.mcap_usd / p.tvl_usd)) + '</td><td>' + pct(p.change_7d) + '</td></tr>'; }).join('') + '</tbody></table>';
+  h += renderAmbig();
   document.getElementById('compsOut').innerHTML = h;
 }
 
@@ -401,6 +403,7 @@ function renderPlanner() {
     + '<div class="card"><h3>Farm priority rule</h3><p>Score = setup transactions + bridges + 1 if fee tier C + 1 if more than 8 distinct chains. 3 or fewer is Easy, 4 is Moderate, 5 or more is Complex; no chain recorded is High uncertainty. An execution label only — never an ROI score or a promise of return.</p>'
     + '<h3>Cost classes</h3><p>Known: action count, wallet, chain, approvals. Estimated: transaction counts, time, complexity. Live quote unavailable: gas, bridge, swap, slippage — get a quote before executing.</p></div></div>';
   h += '<ol class="steps">' + r.farm_steps.map(function (s) { return '<li><label><input type="checkbox"> <span>' + esc(s) + '</span></label></li>'; }).join('') + '</ol>';
+  h += renderGas();
   document.getElementById('planOut').innerHTML = h;
 }
 function renderCalc() {
@@ -409,6 +412,51 @@ function renderCalc() {
   var lo = r.farm.tx_min * gas + r.farm.bridge_tx * bridge + other;
   var hi = r.farm.tx_max * gas + r.farm.bridge_tx * bridge + other;
   document.getElementById('cOut').textContent = 'Estimated total for ' + r.name + ': $' + lo.toFixed(2) + ' – $' + hi.toFixed(2) + ' (' + r.farm.tx_min + '–' + r.farm.tx_max + ' transactions × $' + gas.toFixed(2) + ' + ' + r.farm.bridge_tx + ' bridge × $' + bridge.toFixed(2) + ' + $' + other.toFixed(2) + '). User-supplied cost estimate — not a live quote.';
+}
+
+// Scatter: 118 peers (blue), 226 rows (grey), 40 watchlist (red), fitted curve. Log-log.
+function renderScatter(){
+  var cv=D.curve,pts=[],x0=1/0,x1=0,y0=1/0,y1=0,i,p;
+  compList.forEach(function(c){pts.push([c.tvl_usd,c.mcap_usd,0]);});
+  rows.forEach(function(r){pts.push([r.tvl_usd,r.implied_value_usd,r.watchlist?2:1]);});
+  for(i=0;i<pts.length;i++){p=pts[i];if(p[0]<x0)x0=p[0];if(p[0]>x1)x1=p[0];if(p[1]<y0)y0=p[1];if(p[1]>y1)y1=p[1];}
+  x0=Math.pow(10,Math.floor(Math.log10(x0)));x1=Math.pow(10,Math.ceil(Math.log10(x1)));
+  y0=Math.pow(10,Math.floor(Math.log10(y0)));y1=Math.pow(10,Math.ceil(Math.log10(y1)));
+  var W=640,H=400,L=62,R=10,T=10,B=34,lx=Math.log10(x1/x0),ly=Math.log10(y1/y0);
+  function X(v){return (L+Math.log10(v/x0)/lx*(W-L-R)).toFixed(1);}
+  function Y(v,o){return (H-B-Math.log10(v/y0)/ly*(H-T-B)+(o||0)).toFixed(1);}
+  var h='<svg class="scatter" viewBox="0 0 640 400">';
+  for(p=x0;p<=x1;p*=10)h+='<line x1="'+X(p)+'" y1="'+T+'" x2="'+X(p)+'" y2="'+(H-B)+'" stroke="#d9dee4"/><text x="'+X(p)+'" y="'+(H-12)+'" font-size="11" fill="#5c6672" text-anchor="middle">'+money(p)+'</text>';
+  for(p=y0;p<=y1;p*=10)h+='<line x1="'+L+'" y1="'+Y(p)+'" x2="'+(W-R)+'" y2="'+Y(p)+'" stroke="#d9dee4"/><text x="'+(L-6)+'" y="'+Y(p,4)+'" font-size="11" fill="#5c6672" text-anchor="end">'+money(p)+'</text>';
+  var d='',v;
+  for(v=x0;v<=x1;v*=1.4){var m=Math.exp(cv.intercept+cv.slope*Math.log(v));d+=(d?'L':'M')+X(v)+' '+Y(m)+' ';}
+  h+='<path d="'+d+'" fill="none" stroke="#1d2530" stroke-width="2"/>';
+  var col=['#0b5cad','#9aa5b1','#a33a00'];
+  pts.forEach(function(q){h+='<circle cx="'+X(q[0])+'" cy="'+Y(q[1])+'" r="'+(q[2]===0?3:2.2)+'" fill="'+col[q[2]]+'"/>';});
+  return h+'</svg>';
+}
+
+// Ambiguous records, delta-coded: 1st base36 char = shared slug prefix; then rest : TVL $K base36 : symbol. 272 rows.
+var AMBIG='0aave-horizon-rwa:4ppw:AAVE,5v1:4zd:AAVE,63:8jsvg:AAVE,64:gtu0:AAVE,1di-bridge:4fq:ADI,1ero-basic:14t2:AERO,5slipstream:2ng9:AERO,4drome-ignition:f03:AERO,aslipstream:1is2:AERO,av1:wxp:AERO,2vo-perps:bdj:AEVO,1lchemix-v3:qgn:ALCX,2paca-finance-2.0:8sd:ALPACA,7leveraged-yield-farming:nur:ALPACA,1o-bridge:1l6j:AO,1peswap-amm:5xu:ABOND,1rbitrum-bridge:1snyb:ARB,9nova-bridge:6bc:ARB,2cadia-v2:3vx:AAA,1ster-asbnb:14gq:ASTER,6usdf:2eaf:ASTER,1valanche-core-bridge:2rkz:AVAX,4on-cedefi:1v5g:AVL,7superearn:31rz:AVL,1xelar:2rcv:AXL,0balancer-v2:azw:BAL,a3:7kd:BAL,2ncor-v2.1:5xz:BNT,83:9mu:BNT,1edrock-unibtc:5i2t:BR,beth:f6d:BR,2nqi-staked-avax:48i0:QI,1ifrost-liquid-staking:815:BNC,2nance-cex:1x42px:BNB,1lend-pools-v2:2d68:BLND,2uefin-spot:7vq:BLUE,1onk-staked-sol:4gu:BONK,1uzz-farming:lza:B2,0cetus-clmm:iit:CETUS,1hainflip-amm:83o:FLIP,3mber-vaults:gq5:DHT,1learpool-tpool:ap1:CPOOL,1ompound-v2:1tky:COMP,a3:ntrd:COMP,2nnext:h2p:NEXT,3tango-v2:4kf:TANGO,2oler-loans:3x3j:OHM,1rvusd:1ni6:CRV,1urve-dex:m6vg:CRV,6llamalend:1xlw:CRV,f-v2:oa6:CRV,0deepbook-v3:958:DEEP,2ri-v4:4v3:DERI,4ve-v3-options:3byr:DRV,2xalot-portfolio:45i:ALOT,1odo-amm:9q2:DODO,1rift-staked-sol:4n43:DRIFT,1xsale:cmq:DX,1ydx-v3:4jv:DYDX,64:1gj5:dYdX,0edgex-bridge:198m:EDGE,1thena-usde:2x2hv:ENA,atb:6t9o:ENA,4r.fi-liquid:6ymy:ETHFI,9stake:26pmr:ETHFI,5fi-borrowing-market:6blh:ETHFI,8cash-liquid:4wvh:ETHFI,1uler-v2:59si:EUL,1xtra-finance-leverage-farming:5ze:EXTRA,0fluid-dex:4efx:FLUID,6lending:cz15:FLUID,7ite:3piz:FLUID,1olks-finance-lending:fpt:FOLKS,1rax:kcu:FRAX,4-ether:20wj:FRAX,5swap:7f4:FRAX,5usd:20w6:FRAX,4lend:e9m:FRAX,4tal:3hge:FXTL,1utarchy-amm:a82:META,0gain:fb3:KERNEL,2te-us:14hu:GT,1lif:eim:GLF,1mx-evm:42u0:GMX,1oldfinger:i5p:ART,2plus-locker-v3:kve:GPS,1rvt-bridge:rt4:GRVT,0haedal-lending-vault:4x0:HAEDAL,7protocol:m0m:HAEDAL,2tom-lending:4uj:HTM,1ydration-lending:gex:HDX,4o-lending:43i:HDRO,7st:9al:HDRO,2perlend-pooled:5wtx:HPL,6iquid-bridge:3kezu:HYPE,cearn:vp37:HYPE,chlp:38bs:HYPE,cspot-orderbook:2j3a:HYPE,5swap-v2:4b9:SWAP,b3:81f:SWAP,0ichi:3ye:ICHI,1dex-v1:n3g:IDEX,1mmutable-zkevm:fob:IMX,0jito-liquid-staking:h07a:JTO,5restaking:aes:JTO,1oe-dex:722:JOE,1uicebox-v1:7mo:JBX,2piter-lend:jwv7:JUP,c-dex:qmm:JUP,8perpetual-exchange:cxcw:JUP,8staked-sol:8hvi:JUP,3usd:vkl:JUP,2stcryptos:19n1f:JST,4lend-strx:1u05h:JST,9v1:1wiy5:JST,0kamino-lend:p06m:KMNO,8iquidity:1cib:KMNO,1elp:f2qo:KERNEL,1inetiq-earn:mov:KNTQ,9lysium-bridge:141u:KNTQ,8khype:f8kw:KNTQ,9mhype:r1w:KNTQ,1odiak-islands:cpk:KDK,7v3:ago:KDK,1pk:4ay4:KPK,0layerbank:3vy:LAB,5zero-v2:aiq0m:ZRO,1ighter-bridge:c8ta:LIT,8llp:258c:LIT,8robinhood-perps:2drs:LIT,2near-protocol:wlw:LNR,2quity-v1:2xr1:LQTY,92:1mff:LQTY,2sta-cdp:16qu:LISTA,6dex:rgb:LISTA,6lending:i9wf:LISTA,7iquid-staking:dhd3:LISTA,1ombard-btc.b:34qj:BARD,8lbtc:9k2l:BARD,8vaults:1bzq:BARD,2renzo-enzobtc:8rkq:BANK,8susd1+:1pmq:BANK,0m0:5dgw:POWER,1aple:1bkxv:SYRUP,2rinade-liquid-staking:3rm2:MNDE,9native:5g62:MNDE,9select:1pma:MNDE,1ento-v2:6lc:MENTO,2rchant-moe-liquidity-book:7xm:MOE,2ta-pool-eth:fn7:MPDAO,anear:1kyi:MPDAO,3eora-damm-v1:vqc:MET,e2:du7:MET,9lmm:2sdy:MET,8vaults:uq4:MET,3is-bridge:hbo:METIS,3ronome-synth:6eo:MET,2zo-bridge:6gc:MEZO,1inswap-dex:9kw:MIN,1oonwell-lending:5c4:WELL,9vaults:5oa:WELL,2rpho-blue:673ur:MORPHO,7midnight:4cgf:MORPHO,1stable-v2:3zv:DHT,1ux-perps:6az:MCB,0navi-curator:brc:NAVX,5lending:29pk:NAVX,1ear-bridge:2bex:NEAR,5intents:3sci:NEAR,2opin-staking:v2e:NPT,2st-cl:ifu:NEST,2xus-mutual-insurance:1q5q:NXM,0optimism-bridge:a2if:OP,1rca-dex:5p8z:ORCA,2derly-bridge:e6p:ORDER,2igin-arm:84v:OGN,7dollar:46v:OGN,7ether:yxp:OGN,0pancakeswap-amm:soxb:CAKE,f-v3:ea6o:CAKE,cinfinity:1h0l:CAKE,2pertrade:g1w:PAPER,2radex-bridge:go8:DIME,1endle-loop:ui0:PENDLE,7v2:li9x:PENDLE,1haraoh-dlmm:51t:PHAR,8v3:kpd:PHAR,1robit-global:8oj:PROB,3xy:dod:PRXY,1uffer-stake:el0:PUFFER,2lsex-v1:l9e:PLSX,82:9nf:PLSX,2mpswap:5lny:PUMP,0quickswap-v3:c25:QUICK,0ramses-cl-v2:6be:RAM,2ydium-amm:jaoc:RAY,1ealt-rmm-marketplace-v2:mf0:REG,6tokens:3bmm:REG,1hea-dex:gqw:RHEA,5lend:2w21:RHEA,1iver-omni-cdp:1g1a:RIVER,1nt-lend:gpe:RNT,0sanctum-infinity:358d:SANC,8reserve:117q:SANC,8validator-lsts:vdat:SANC,2phyre-v3:8re:DRG,2ucerswap-v1:568:SAUCE,c2:9na:SAUCE,2ve:1d21:SAVE,4-sol:3xs:SAVE,1callop-lend:6av:SCA,1eamless-v2:41d:SEAM,1ky-lending:28qb5:SKY,4money:1v1k:SKY,4rwa:1bai:SKY,1odex-bridge:16xr:SOSO,2layer-restaking:5yt:LAYER,3v-basis-trading:3ocs:SOLV,5rwa:63h:SOLV,4btc:8m6z:SOLV,2sovalue-indexes:1tg1:SOSO,2vryn-dex:3ye:SOV,7zero:c7k:SOV,1park-liquidity-layer:1p2sd:SPK,6savings:q4u0:SPK,5dex-v3.1:3yb:SPRK,a4:95k:SPRK,5lend:2m5oy:SPK,2ectra-metavaults:4fm:SPECTRA,8v2:9j1:SPECTRA,1take-dao-yield:2k5v:SDT,5.link-liquid:1jww:SDL,5stone-stone:bed:STO,5wise-v3:g91f:SWISE,3rgate-v1:69p:STG,a2:1m67:STG,1uilend:2qfc:SEND,2mmer.fi-pro:9sc:SUMR,2nswap-v1:117k:SUN,92:5e2w:SUN,93:3azg:SUN,94:2skg:SUN,3x-bridge:g41:SUN,2perform:9la:UP,2shi-stellar:c7o:SUSHI,5swap-v3:rtq:SUSHI,1well-liquid-restaking:glr:SWELL,dstaking:g8r:SWELL,0tangible-rwa:vzm:TNGBL,1btc:64fr:T,1he-idols:404:VIRTUE,4vault-liquid-staking:27fh:V,0uncx-network-v2:2kkx:UNCX,e3:glp:UNCX,2iswap-v2:g67h:UNI,93:u7lb:UNI,94:nr6q:UNI,3tas-usdu:ygm:UP,4us:4pb:UTS,0vaulta-rex:ml9:EOS,1enus-core-pool:lq6f:XVS,2sper-v1:1kdu:VSP,82:6tx:VSP,1ires-finance:4i0:VIRES,1olo-lst:hek:NAVX,1vs-standard:1eqj:VVS,0xalgo-liquid-staking:gsg:FOLKS,0yearn-curating:12vt:YFI,6finance:2xxv:YFI,1o-protocol:nx5:YO,2uves:cp0:YOU,0zest-v2:xmm:ZEST';
+function renderAmbig(){
+  var prev='',list=AMBIG.split(',').map(function(s){var q=s.split(':'),n=parseInt(q[0][0],36);prev=prev.slice(0,n)+q[0].slice(1);return [prev,parseInt(q[1],36)*1000,q[2]];});
+  var h='<details><summary>Ambiguous records — set aside, unverified <span>· 272 records · no market cap, but a symbol or CoinGecko id</span></summary>'
+  +'<p class="dim">Each carries a symbol or a CoinGecko id but no market cap, so the board cannot tell whether a token exists: set aside, never tokenless. 14 share a symbol with a protocol here that records a market cap; 66 are versioned names; 3 are exchanges.</p>'
+  +'<table><thead><tr><th>Protocol (slug)</th><th>TVL</th><th>Token identifier</th></tr></thead><tbody>'
+  +list.map(function(r){return '<tr><td>'+esc(r[0])+'</td><td>'+money(r[1])+'</td><td>'+esc(r[2])+'</td></tr>';}).join('')
+  +'</tbody></table></details>';
+  return h;
+}
+
+// Gas snapshot: fee-tier map as assumed $ per transaction, from data.js.
+function renderGas(){
+  var tc=M.verdict_tx_cost||{A:0.05,B:0.5,C:5};
+  var h='<details><summary>Gas cost snapshot <span>· '+D.fee_tiers.chains.length+' named chains · model planning assumptions, as of '+esc(D.as_of)+' — not live quotes</span></summary>'
+  +'<p class="dim">Assumed cost of one transaction per named chain, from the fee-tier map: tier A $'+tc.A.toFixed(2)+', tier B $'+tc.B.toFixed(2)+', tier C $'+tc.C.toFixed(2)+'. '+esc(D.fee_tiers.note)+' Get a live quote before executing.</p>'
+  +'<table><thead><tr><th>Chain</th><th>Tier</th><th>Assumed $ / tx</th></tr></thead><tbody>'
+  +D.fee_tiers.chains.concat([{chain:'All other chains',tier:D.fee_tiers.default}]).map(function(c){return '<tr><td>'+esc(c.chain)+'</td><td>'+c.tier+'</td><td>$'+tc[c.tier].toFixed(2)+'</td></tr>';}).join('')
+  +'</tbody></table></details>';
+  return h;
 }
 
 // ---------- wiring and first render ----------
